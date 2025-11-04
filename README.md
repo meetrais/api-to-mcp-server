@@ -34,7 +34,7 @@ Choose your platform based on your existing infrastructure:
 
 ---
 
-## Postman
+## <img src="https://avatars.githubusercontent.com/u/10251060?s=24" width="24" height="24" alt="Postman" /> Postman
 
 Postman provides an MCP Generator that allows you to create MCP servers from public APIs available in the Postman API Network.
 
@@ -125,7 +125,7 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 
 ---
 
-## Google Cloud Platform (Apigee)
+## <img src="https://www.gstatic.com/images/branding/product/2x/google_cloud_48dp.png" width="24" height="24" alt="Google Cloud" /> Google Cloud Platform (Apigee)
 
 Apigee provides an MCP server implementation that dynamically discovers Apigee-managed API Products and exposes them as MCP tools for AI agents.
 
@@ -216,7 +216,7 @@ gcloud run deploy mcp-server \
 
 ---
 
-## AWS
+## <img src="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico" width="24" height="24" alt="AWS" /> AWS
 
 AWS provides the MCP Proxy for AWS, a lightweight client-side bridge between MCP clients and backend AWS MCP servers with SigV4 authentication.
 
@@ -397,7 +397,7 @@ Edit configuration file:
 
 ---
 
-## Microsoft Azure
+## <img src="https://azure.microsoft.com/svghandler/azure/?width=24&height=24" width="24" height="24" alt="Microsoft Azure" /> Microsoft Azure
 
 Azure API Management allows you to expose REST APIs as remote MCP servers using its built-in AI gateway capabilities.
 
