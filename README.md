@@ -145,7 +145,7 @@ To use your Postman MCP server with Claude Desktop, you need to add it to Claude
 
 ## <img src="https://www.gstatic.com/images/branding/product/2x/google_cloud_48dp.png" width="24" height="24" alt="Google Cloud" /> Google Cloud Platform (Apigee)
 
-Apigee provides an MCP server implementation that dynamically discovers Apigee-managed API Products and exposes them as MCP tools for AI agents.
+This guide is based on the [Apigee MCP Sample](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp) from Google Cloud Platform. The sample provides an MCP server implementation that dynamically discovers Apigee-managed API Products and exposes them as MCP tools for AI agents.
 
 ### Key Features
 
@@ -187,6 +187,16 @@ Configure the server using environment variables:
 | `PORT` | No | Port for HTTP server in SSE mode | `3000` | `8080` |
 | `MCP_CACHE_TTL` | No | Cache time-to-live in milliseconds | `300000` (5 min) | `600000` |
 
+### Getting Started
+
+**Clone the Repository:**
+```bash
+git clone https://github.com/GoogleCloudPlatform/apigee-samples.git
+cd apigee-samples/apigee-mcp
+```
+
+For detailed setup instructions, refer to the [README in the repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp).
+
 ### Deployment
 
 The repository includes a `deploy-all.sh` script that automates the deployment process:
@@ -221,6 +231,12 @@ gcloud run deploy mcp-server \
   --set-env-vars MCP_BASE_URL=your-base-url,MCP_CLIENT_ID=your-client-id,MCP_CLIENT_SECRET=your-secret,MCP_MODE=SSE
 ```
 
+### Additional Resources
+
+- [Apigee MCP Sample Repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp)
+- [Detailed Implementation Guide](https://github.com/GoogleCloudPlatform/apigee-samples/blob/main/apigee-mcp/README.md)
+- [Apigee Documentation](https://cloud.google.com/apigee/docs)
+
 ### Troubleshooting
 
 **Issue: "Failed to fetch API products"**
@@ -231,6 +247,8 @@ gcloud run deploy mcp-server \
 
 **Issue: OAuth authentication failing**
 - Solution: Ensure the Developer App in Apigee has the correct credentials and the API Product is associated with it
+
+For more troubleshooting help, see the [repository's troubleshooting section](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp#troubleshooting)
 
 ---
 
