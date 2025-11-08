@@ -60,7 +60,10 @@ Postman provides an MCP Generator that allows you to create MCP servers from pub
 ### Set Up Your MCP Server
 
 1. Unzip the downloaded file to your desired location
-2. Open terminal and navigate to the MCP server's root directory
+2. Open terminal and navigate to the MCP server's root directory:
+```bash
+   cd /path/to/your-mcp-server
+```
 3. Install dependencies:
 ```bash
    npm install
@@ -69,20 +72,7 @@ Postman provides an MCP Generator that allows you to create MCP servers from pub
 ```bash
    npm run list-tools
 ```
-5. For each tool, verify the `baseUrl` value in the tool file located in the `tools/` directory
-6. Store sensitive data like API keys in the `.env` file:
-```env
-   API_KEY=your_api_key_here
-   API_SECRET=your_api_secret_here
-```
-7. Implement authentication in tool files by modifying the request headers:
-```javascript
-   // Example: Add Bearer token authentication
-   headers: {
-     'Authorization': `Bearer ${process.env.API_KEY}`,
-     'Content-Type': 'application/json'
-   }
-```
+   This command lists your tool's information, including their file names. You can find these files in the `tools/` directory.
 
 ### Start Your MCP Server
 
@@ -100,17 +90,39 @@ Stop the server with `Control+C` (Mac) or `Ctrl+C` (Windows/Linux).
 
 ### Configure MCP Client
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac):
+To use your Postman MCP server with Claude Desktop, you need to add it to Claude's configuration file.
+
+**Configuration File Locations:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+
+**Steps to Configure:**
+
+1. Locate and open the `claude_desktop_config.json` file in a text editor
+2. Add your Postman MCP server configuration:
+
 ```json
 {
   "mcpServers": {
     "postman-api": {
       "command": "node",
-      "args": ["/path/to/your/mcpServer.js"]
+      "args": ["/absolute/path/to/your/mcpServer.js"]
     }
   }
 }
 ```
+
+3. Replace `/absolute/path/to/your/mcpServer.js` with the full path to your MCP server file
+   - Example (macOS/Linux): `"/Users/username/postman-mcp-server/mcpServer.js"`
+   - Example (Windows): `"C:\\Users\\username\\postman-mcp-server\\mcpServer.js"`
+
+4. Save the configuration file
+5. Restart Claude Desktop completely (quit and reopen the application)
+6. Open a new conversation in Claude Desktop
+7. Your Postman API tools should now be available for Claude to use
+
+**Note:** The MCP server runs automatically when Claude Desktop starts. You don't need to manually start it with `node mcpServer.js` when using it with Claude Desktop.
 
 ### Troubleshooting
 
