@@ -73,6 +73,12 @@ Postman provides an MCP Generator that allows you to create MCP servers from pub
    npm run list-tools
 ```
    This command lists your tool's information, including their file names. You can find these files in the `tools/` directory.
+5. If your APIs require authentication, store sensitive data such as API keys or tokens in the `.env` file:
+```env
+   API_KEY=your_api_key_here
+   API_SECRET=your_api_secret_here
+```
+   Refer to your project's `README.md` file for specific configuration requirements.
 
 ### Start Your MCP Server
 
