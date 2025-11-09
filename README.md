@@ -189,10 +189,36 @@ Configure the server using environment variables:
 
 ### Getting Started
 
-**Clone the Repository:**
+**1. Clone the Repository:**
 ```bash
 git clone https://github.com/GoogleCloudPlatform/apigee-samples.git
 cd apigee-samples/apigee-mcp
+```
+
+**2. Configure Environment Variables:**
+
+Edit the apigee-mcp\env.sh and set the following variables based on your APIGEE and GCP Project details:
+
+```bash
+export PROJECT="<PROJECT_ID_TO_SET>"                    # Your GCP Project ID
+export REGION="<REGION_TO_SET>"                         # e.g., us-central1
+export APIGEE_ENV="<APIGEE_ENV_TO_SET>"                 # e.g., eval
+export APIGEE_HOST="<APIGEE_HOST_TO_SET>"               # e.g., your-org-eval.apigee.net
+export SA_EMAIL="<SA_EMAIL_TO_SET>"                     # e.g., apigee-runtime-sa@<PROJECT_ID>.iam.gserviceaccount.com
+```
+
+**Example Configuration:**
+```bash
+export PROJECT="my-gcp-project"
+export REGION="us-central1"
+export APIGEE_ENV="eval"
+export APIGEE_HOST="my-org-eval.apigee.net"
+export SA_EMAIL="apigee-runtime-sa@my-gcp-project.iam.gserviceaccount.com"
+```
+
+**3. Source the Environment File:**
+```bash
+source ./env.sh
 ```
 
 For detailed setup instructions, refer to the [README in the repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp).
@@ -201,11 +227,7 @@ For detailed setup instructions, refer to the [README in the repository](https:/
 
 The repository includes a `deploy-all.sh` script that automates the deployment process:
 ```bash
-# Set your GCP project
-export GCP_PROJECT_ID=your-project-id
-export APIGEE_ENV=your-apigee-environment
-
-# Run deployment script
+# After configuring env.sh and sourcing it, run:
 ./deploy-all.sh
 ```
 
