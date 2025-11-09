@@ -165,6 +165,8 @@ This guide is based on the [Apigee MCP Sample](https://github.com/GoogleCloudPla
 - Apigee API hub enabled and provisioned in the same GCP project
 - gcloud CLI installed and configured
 - Docker installed (for building container images)
+- apigeecli installed ([download releases](https://github.com/apigee/apigeecli/releases))
+- jq (JSON processor) installed ([download](https://jqlang.org/download/))
 
 ### Core Functionality
 
