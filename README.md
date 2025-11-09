@@ -175,20 +175,6 @@ This guide is based on the [Apigee MCP Sample](https://github.com/GoogleCloudPla
 3. **MCP Tool Exposure**: Exposes generated tools for MCP clients to consume
 4. **Secure API Execution**: Translates MCP tool calls into HTTP requests with proper authentication using OAuth 2.0
 
-### Configuration
-
-Configure the server using environment variables:
-
-| Variable | Required | Description | Default | Example |
-|----------|----------|-------------|---------|---------|
-| `MCP_BASE_URL` | Yes | Base URL of the MCP API that lists products and specs | - | `https://api.example.com/mcp` |
-| `MCP_CLIENT_ID` | Yes | Client ID for OAuth authentication | - | `abc123xyz` |
-| `MCP_CLIENT_SECRET` | Yes | Client Secret for OAuth authentication | - | `secret456` |
-| `MCP_MODE` | No | Transport protocol | `STDIO` | `STDIO` or `SSE` |
-| `BASE_PATH` | No | Base path for SSE endpoints | `mcp-proxy` | `api/mcp` |
-| `PORT` | No | Port for HTTP server in SSE mode | `3000` | `8080` |
-| `MCP_CACHE_TTL` | No | Cache time-to-live in milliseconds | `300000` (5 min) | `600000` |
-
 ### Getting Started
 
 **1. Clone the Repository:**
@@ -278,7 +264,16 @@ For more troubleshooting help, see the [repository's troubleshooting section](ht
 
 ## <img src="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico" width="24" height="24" alt="AWS" /> AWS
 
-AWS provides the MCP Proxy for AWS, a lightweight client-side bridge between MCP clients and backend AWS MCP servers with SigV4 authentication.
+This guide is based on the [MCP Proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) repository. The MCP Proxy for AWS is a lightweight client-side bridge between MCP clients (like Claude Desktop, Amazon Q Developer CLI) and IAM-secured MCP servers on AWS that use SigV4 authentication.
+
+### Overview
+
+The MCP Proxy for AWS solves a key integration challenge: while the official MCP specification supports OAuth-based authentication, MCP servers on AWS can use AWS IAM authentication (SigV4). Standard MCP clients don't natively support SigV4 request signing.
+
+This package bridges that gap by:
+- Handling SigV4 authentication automatically using your local AWS credentials
+- Providing seamless integration with existing MCP clients
+- Eliminating the need to build custom MCP clients with SigV4 signing logic
 
 ### Prerequisites
 
@@ -286,9 +281,14 @@ AWS provides the MCP Proxy for AWS, a lightweight client-side bridge between MCP
 - `uv` package manager installed ([installation guide](https://github.com/astral-sh/uv))
 - AWS CLI installed and configured with valid credentials
 - AWS account with appropriate IAM permissions
+- An MCP server endpoint on AWS (e.g., Amazon Bedrock AgentCore, API Gateway, Lambda Function URL)
 - Docker Desktop (optional, for containerized deployment)
 
 ### Installation
+
+The MCP Proxy for AWS can be used in two ways:
+1. **As a proxy** - Bridge between MCP clients and AWS MCP servers (covered in this guide)
+2. **As a library** - Programmatic integration with AI frameworks like LangChain, LlamaIndex, Strands Agents (see [repository documentation](https://github.com/aws/mcp-proxy-for-aws))
 
 **Option 1: Using PyPI (Recommended)**
 ```bash
@@ -315,6 +315,8 @@ docker run --rm \
   mcp-proxy-for-aws \
   https://your-mcp-endpoint.execute-api.us-east-1.amazonaws.com
 ```
+
+**Note:** When using with MCP clients like Claude Desktop or Amazon Q Developer CLI, you don't need to run these commands manually. The client will start the proxy automatically based on your configuration.
 
 ### Endpoint URL Format
 
@@ -419,8 +421,10 @@ Using Docker:
 **For Claude Desktop**
 
 Edit configuration file:
-- Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json` (typically `C:\Users\YourUsername\AppData\Roaming\Claude\claude_desktop_config.json`)
+
+Using uvx:
 ```json
 {
   "mcpServers": {
@@ -430,30 +434,75 @@ Edit configuration file:
         "mcp-proxy-for-aws@latest",
         "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp",
         "--profile",
-        "default"
+        "default",
+        "--region",
+        "us-east-1"
       ]
     }
   }
 }
 ```
 
+Using Docker (Windows example):
+```json
+{
+  "mcpServers": {
+    "aws-api": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--volume",
+        "C:\\Users\\YourUsername\\.aws:/app/.aws:ro",
+        "-e",
+        "AWS_PROFILE=default",
+        "-e",
+        "AWS_REGION=us-east-1",
+        "mcp-proxy-for-aws",
+        "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+**Important:** After updating the configuration, completely quit Claude Desktop and restart it.
+
+### Additional Resources
+
+- [MCP Proxy for AWS Repository](https://github.com/aws/mcp-proxy-for-aws)
+- [Programmatic Access Documentation](https://github.com/aws/mcp-proxy-for-aws#programmatic-access)
+- [AWS Documentation](https://docs.aws.amazon.com/)
+
 ### Troubleshooting
 
 **Issue: "Unable to locate credentials"**
 - Solution: Verify AWS CLI is configured with `aws configure` or environment variables are set correctly
 - Check credential precedence: environment variables > profile > IAM role
+- Test AWS credentials with: `aws sts get-caller-identity`
 
 **Issue: "Access Denied" or 403 errors**
 - Solution: Verify IAM user/role has permissions to invoke the MCP endpoint
 - Check the SigV4 service name matches the AWS service hosting your endpoint
+- Ensure the `--service` parameter is correct (e.g., `execute-api` for API Gateway, `lambda` for Lambda Function URLs)
 
 **Issue: Connection timeout**
 - Solution: Increase timeout values with `--timeout`, `--connect-timeout`, or `--read-timeout` flags
 - Verify network connectivity to the AWS endpoint
+- Check if VPN or firewall is blocking the connection
 
 **Issue: "Invalid endpoint URL"**
 - Solution: Ensure endpoint URL includes the full path including protocol (`https://`)
 - Verify the endpoint is accessible and returns valid MCP responses
+- Test the endpoint with `curl` to confirm it's reachable
+
+**Issue: MCP server not starting in Claude Desktop**
+- Solution: Verify `uv` is installed and accessible from command line (`uv --version`)
+- Check Claude Desktop logs for error messages
+- Ensure the endpoint URL is correct and accessible from your machine
+
+For more troubleshooting help, see the [repository's documentation](https://github.com/aws/mcp-proxy-for-aws)
 
 ---
 
