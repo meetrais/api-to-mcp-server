@@ -268,9 +268,10 @@ Azure API Management allows you to expose REST APIs as remote MCP servers using 
 
 ### Prerequisites
 
-- Azure API Management instance in one of these tiers:
-  - Basic, Standard, Premium (requires AI Gateway Early Access)
-  - Basic v2, Standard v2, or Premium v2
+- Azure API Management instance that supports AI Gateway.
+  - **Recommended Tiers**: `Basic v2`, `Standard v2`, or `Premium v2` natively include the AI Gateway feature.
+  - **Classic Tiers**: `Basic`, `Standard`, and `Premium` require joining the AI Gateway Early Access program.
+  - > If you need to create a new instance, follow the [official Azure documentation](https://docs.microsoft.com/azure/api-management/get-started-create-service-instance) and choose a `v2` tier for immediate access to AI Gateway.
 - HTTP-compatible REST API managed in API Management
 - Visual Studio Code with GitHub Copilot extension (for testing)
 - Azure subscription with appropriate permissions
