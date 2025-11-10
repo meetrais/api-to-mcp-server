@@ -264,6 +264,12 @@ For more troubleshooting help, see the [repository's troubleshooting section](ht
 
 ## <img src="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico" width="24" height="24" alt="AWS" /> AWS
 
+> **⚠️ Important Note**
+>
+> Unlike other platform sections that show how to **create MCP servers from existing APIs**, this AWS section covers the **MCP Client Proxy** for connecting to **existing MCP servers already deployed on AWS**. It handles SigV4 authentication but does not create MCP servers.
+>
+> **This section assumes you already have an MCP-compliant server deployed on AWS.** If you need to create an MCP server from existing AWS services, you'll need to implement the MCP protocol in your Lambda/API Gateway first.
+
 This guide is based on the [MCP Proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) repository. The MCP Proxy for AWS is a lightweight client-side bridge between MCP clients (like Claude Desktop, Amazon Q Developer CLI) and IAM-secured MCP servers on AWS that use SigV4 authentication.
 
 ### Overview
