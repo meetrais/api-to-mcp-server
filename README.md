@@ -10,8 +10,8 @@ Choose your platform based on your existing infrastructure:
 |----------|---------------|------------|
 | [Postman](#postman) | Node.js 18+ | 10 minutes |
 | [Google Cloud (Apigee)](#google-cloud-platform-apigee) | GCP Project, Apigee X | 30 minutes |
-| [AWS](#aws) | Python 3.10+, AWS CLI | 15 minutes |
 | [Microsoft Azure](#microsoft-azure) | Azure APIM instance | 20 minutes |
+| [AWS](#aws) | Python 3.10+, AWS CLI | 15 minutes |
 
 ## Glossary
 
@@ -27,8 +27,8 @@ Choose your platform based on your existing infrastructure:
 
 - [Postman](#postman)
 - [Google Cloud Platform (Apigee)](#google-cloud-platform-apigee)
-- [AWS](#aws)
 - [Microsoft Azure](#microsoft-azure)
+- [AWS](#aws)
 - [Security Best Practices](#security-best-practices)
 - [Troubleshooting Common Issues](#troubleshooting-common-issues)
 
@@ -259,6 +259,199 @@ gcloud run deploy mcp-server \
 - Solution: Ensure the Developer App in Apigee has the correct credentials and the API Product is associated with it
 
 For more troubleshooting help, see the [repository's troubleshooting section](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp#troubleshooting)
+
+---
+
+## <img src="https://azure.microsoft.com/svghandler/azure/?width=24&height=24" width="24" height="24" alt="Microsoft Azure" /> Microsoft Azure
+
+Azure API Management allows you to expose REST APIs as remote MCP servers using its built-in AI gateway capabilities.
+
+### Prerequisites
+
+- Azure API Management instance in one of these tiers:
+  - Basic, Standard, Premium (requires AI Gateway Early Access)
+  - Basic v2, Standard v2, or Premium v2
+- HTTP-compatible REST API managed in API Management
+- Visual Studio Code with GitHub Copilot extension (for testing)
+- Azure subscription with appropriate permissions
+
+### Joining AI Gateway Early Access
+
+For classic tiers (Basic, Standard, Premium), you must join the AI Gateway Early Access group:
+
+1. Navigate to your API Management instance in Azure Portal
+2. Go to **Settings** > **Features**
+3. Find **AI Gateway** and click **Join Early Access**
+4. Wait up to 2 hours for the update to be applied
+5. Verify by checking if **MCP Servers** appears in the left menu under APIs
+
+### Important Configuration Note
+
+**Critical:** If diagnostic logging is enabled via Application Insights or Azure Monitor at the global scope (All APIs), you must set the "Number of payload bytes to log" for Frontend Response to 0.
+
+Why: Response body logging triggers buffering, which interferes with MCP server streaming behavior and can cause tool invocation failures.
+
+To configure:
+1. Navigate to **APIs** > **All APIs** > **Settings**
+2. Under **Diagnostic Logs**, find **Frontend Response**
+3. Set **Number of payload bytes to log** to `0`
+4. Click **Save**
+
+### Expose API as MCP Server
+
+1. In the Azure portal, navigate to your API Management instance
+2. In the left menu, under **APIs**, select **MCP Servers** > **+ Create MCP server**
+3. Select **"Expose an API as an MCP server"**
+4. In **Backend MCP server**:
+   - Select a managed API to expose from the dropdown
+   - Select one or more API operations to expose as tools (or select all)
+5. In **New MCP server**:
+   - Enter a **Name** for the MCP server (e.g., `customer-api-mcp`)
+   - Optionally, enter a **Description** explaining what the server provides
+6. Click **Create**
+
+The MCP server is created and listed in the **MCP Servers** blade with its Server URL endpoint in this format:
+```
+https://[your-apim-instance].azure-api.net/mcp/[server-name]
+```
+
+### Configure Policies
+
+Configure API Management policies to manage the MCP server. These policies apply to all API operations exposed as tools.
+
+**Important:** Do not access the response body using `context.Response.Body` within MCP server policies, as this triggers response buffering and interferes with streaming behavior.
+
+To configure policies:
+1. Navigate to **APIs** > **MCP Servers**
+2. Select your MCP server
+3. Click **Policies** in the toolbar
+4. Edit the policy XML
+
+**Example: Rate Limiting by IP**
+```xml
+<policies>
+    <inbound>
+        <base />
+        <rate-limit-by-key calls="5" 
+                           renewal-period="30" 
+                           counter-key="@(context.Request.IpAddress)" 
+                           remaining-calls-variable-name="remainingCallsPerIP" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+```
+
+**Example: Add Authentication Header**
+```xml
+<policies>
+    <inbound>
+        <base />
+        <set-header name="Authorization" exists-action="override">
+            <value>Bearer {{api-key-secret}}</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+```
+
+### Add MCP Server in Visual Studio Code
+
+1. Open Visual Studio Code with GitHub Copilot installed
+2. Use the **"MCP: Add Server"** command from the Command Palette (Ctrl+Shift+P or Cmd+Shift+P)
+3. Select server type: **HTTP (HTTP or Server Sent Events)**
+4. Enter the Server URL from API Management:
+```
+   https://your-apim.azure-api.net/mcp/your-server-name
+```
+5. Enter a Server ID of your choice (e.g., `azure-customer-api`)
+6. Choose where to save:
+   - **Workspace settings**: `.vscode/mcp.json` (project-specific)
+   - **User settings**: Global `settings.json` (available in all projects)
+
+Add authentication configuration to the JSON file:
+
+**Using Subscription Key:**
+```json
+{
+  "mcp": {
+    "servers": {
+      "azure-customer-api": {
+        "url": "https://your-apim.azure-api.net/mcp/your-server-name",
+        "headers": {
+          "Ocp-Apim-Subscription-Key": "your-subscription-key"
+        }
+      }
+    }
+  }
+}
+```
+
+**Using OAuth Token:**
+```json
+{
+  "mcp": {
+    "servers": {
+      "azure-customer-api": {
+        "url": "https://your-apim.azure-api.net/mcp/your-server-name",
+        "headers": {
+          "Authorization": "Bearer your-oauth-token"
+        }
+      }
+    }
+  }
+}
+```
+
+### Use Tools in Agent Mode
+
+1. In GitHub Copilot chat, select **Agent mode** (click the agent icon)
+2. Click the **Tools** button to see available tools from connected MCP servers
+3. Select one or more tools from the MCP server
+4. Enter a prompt to invoke the tool (e.g., "Get customer details for ID 12345")
+5. Select **Continue** to see results from the API
+
+### Troubleshooting
+
+**Issue: 401 Unauthorized error**
+- Solution: Add authentication using the `set-header` policy to manually attach the authorization token
+- Verify the subscription key or OAuth token is valid and has access to the API
+- Check that the policy is applied at the correct scope (MCP server or API level)
+
+**Issue: API call works in API Management test console but fails in agent**
+- Solution: Verify security policies are correctly configured for the MCP server
+- Check that CORS policies allow requests from the MCP client
+- Ensure the endpoint URL is correct and accessible from the client
+
+**Issue: MCP server streaming fails with diagnostic logs enabled**
+- Solution: Disable response body logging at the **All APIs** scope
+- Navigate to **APIs** > **All APIs** > **Settings** > **Diagnostic Logs**
+- Set **Number of payload bytes to log** for Frontend Response to `0`
+
+**Issue: Tools not appearing in VS Code**
+- Solution: Restart VS Code after adding the MCP server configuration
+- Verify the MCP server URL is accessible by testing in a browser
+- Check the GitHub Copilot extension is up to date
+
+**Issue: "Failed to connect to MCP server"**
+- Solution: Verify your Azure API Management instance is in a supported tier
+- Check network connectivity from your machine to the APIM endpoint
+- Ensure no firewall or proxy is blocking the connection
 
 ---
 
@@ -509,199 +702,6 @@ Using Docker (Windows example):
 - Ensure the endpoint URL is correct and accessible from your machine
 
 For more troubleshooting help, see the [repository's documentation](https://github.com/aws/mcp-proxy-for-aws)
-
----
-
-## <img src="https://azure.microsoft.com/svghandler/azure/?width=24&height=24" width="24" height="24" alt="Microsoft Azure" /> Microsoft Azure
-
-Azure API Management allows you to expose REST APIs as remote MCP servers using its built-in AI gateway capabilities.
-
-### Prerequisites
-
-- Azure API Management instance in one of these tiers:
-  - Basic, Standard, Premium (requires AI Gateway Early Access)
-  - Basic v2, Standard v2, or Premium v2
-- HTTP-compatible REST API managed in API Management
-- Visual Studio Code with GitHub Copilot extension (for testing)
-- Azure subscription with appropriate permissions
-
-### Joining AI Gateway Early Access
-
-For classic tiers (Basic, Standard, Premium), you must join the AI Gateway Early Access group:
-
-1. Navigate to your API Management instance in Azure Portal
-2. Go to **Settings** > **Features**
-3. Find **AI Gateway** and click **Join Early Access**
-4. Wait up to 2 hours for the update to be applied
-5. Verify by checking if **MCP Servers** appears in the left menu under APIs
-
-### Important Configuration Note
-
-**Critical:** If diagnostic logging is enabled via Application Insights or Azure Monitor at the global scope (All APIs), you must set the "Number of payload bytes to log" for Frontend Response to 0.
-
-Why: Response body logging triggers buffering, which interferes with MCP server streaming behavior and can cause tool invocation failures.
-
-To configure:
-1. Navigate to **APIs** > **All APIs** > **Settings**
-2. Under **Diagnostic Logs**, find **Frontend Response**
-3. Set **Number of payload bytes to log** to `0`
-4. Click **Save**
-
-### Expose API as MCP Server
-
-1. In the Azure portal, navigate to your API Management instance
-2. In the left menu, under **APIs**, select **MCP Servers** > **+ Create MCP server**
-3. Select **"Expose an API as an MCP server"**
-4. In **Backend MCP server**:
-   - Select a managed API to expose from the dropdown
-   - Select one or more API operations to expose as tools (or select all)
-5. In **New MCP server**:
-   - Enter a **Name** for the MCP server (e.g., `customer-api-mcp`)
-   - Optionally, enter a **Description** explaining what the server provides
-6. Click **Create**
-
-The MCP server is created and listed in the **MCP Servers** blade with its Server URL endpoint in this format:
-```
-https://[your-apim-instance].azure-api.net/mcp/[server-name]
-```
-
-### Configure Policies
-
-Configure API Management policies to manage the MCP server. These policies apply to all API operations exposed as tools.
-
-**Important:** Do not access the response body using `context.Response.Body` within MCP server policies, as this triggers response buffering and interferes with streaming behavior.
-
-To configure policies:
-1. Navigate to **APIs** > **MCP Servers**
-2. Select your MCP server
-3. Click **Policies** in the toolbar
-4. Edit the policy XML
-
-**Example: Rate Limiting by IP**
-```xml
-<policies>
-    <inbound>
-        <base />
-        <rate-limit-by-key calls="5" 
-                           renewal-period="30" 
-                           counter-key="@(context.Request.IpAddress)" 
-                           remaining-calls-variable-name="remainingCallsPerIP" />
-    </inbound>
-    <backend>
-        <base />
-    </backend>
-    <outbound>
-        <base />
-    </outbound>
-    <on-error>
-        <base />
-    </on-error>
-</policies>
-```
-
-**Example: Add Authentication Header**
-```xml
-<policies>
-    <inbound>
-        <base />
-        <set-header name="Authorization" exists-action="override">
-            <value>Bearer {{api-key-secret}}</value>
-        </set-header>
-    </inbound>
-    <backend>
-        <base />
-    </backend>
-    <outbound>
-        <base />
-    </outbound>
-    <on-error>
-        <base />
-    </on-error>
-</policies>
-```
-
-### Add MCP Server in Visual Studio Code
-
-1. Open Visual Studio Code with GitHub Copilot installed
-2. Use the **"MCP: Add Server"** command from the Command Palette (Ctrl+Shift+P or Cmd+Shift+P)
-3. Select server type: **HTTP (HTTP or Server Sent Events)**
-4. Enter the Server URL from API Management:
-```
-   https://your-apim.azure-api.net/mcp/your-server-name
-```
-5. Enter a Server ID of your choice (e.g., `azure-customer-api`)
-6. Choose where to save:
-   - **Workspace settings**: `.vscode/mcp.json` (project-specific)
-   - **User settings**: Global `settings.json` (available in all projects)
-
-Add authentication configuration to the JSON file:
-
-**Using Subscription Key:**
-```json
-{
-  "mcp": {
-    "servers": {
-      "azure-customer-api": {
-        "url": "https://your-apim.azure-api.net/mcp/your-server-name",
-        "headers": {
-          "Ocp-Apim-Subscription-Key": "your-subscription-key"
-        }
-      }
-    }
-  }
-}
-```
-
-**Using OAuth Token:**
-```json
-{
-  "mcp": {
-    "servers": {
-      "azure-customer-api": {
-        "url": "https://your-apim.azure-api.net/mcp/your-server-name",
-        "headers": {
-          "Authorization": "Bearer your-oauth-token"
-        }
-      }
-    }
-  }
-}
-```
-
-### Use Tools in Agent Mode
-
-1. In GitHub Copilot chat, select **Agent mode** (click the agent icon)
-2. Click the **Tools** button to see available tools from connected MCP servers
-3. Select one or more tools from the MCP server
-4. Enter a prompt to invoke the tool (e.g., "Get customer details for ID 12345")
-5. Select **Continue** to see results from the API
-
-### Troubleshooting
-
-**Issue: 401 Unauthorized error**
-- Solution: Add authentication using the `set-header` policy to manually attach the authorization token
-- Verify the subscription key or OAuth token is valid and has access to the API
-- Check that the policy is applied at the correct scope (MCP server or API level)
-
-**Issue: API call works in API Management test console but fails in agent**
-- Solution: Verify security policies are correctly configured for the MCP server
-- Check that CORS policies allow requests from the MCP client
-- Ensure the endpoint URL is correct and accessible from the client
-
-**Issue: MCP server streaming fails with diagnostic logs enabled**
-- Solution: Disable response body logging at the **All APIs** scope
-- Navigate to **APIs** > **All APIs** > **Settings** > **Diagnostic Logs**
-- Set **Number of payload bytes to log** for Frontend Response to `0`
-
-**Issue: Tools not appearing in VS Code**
-- Solution: Restart VS Code after adding the MCP server configuration
-- Verify the MCP server URL is accessible by testing in a browser
-- Check the GitHub Copilot extension is up to date
-
-**Issue: "Failed to connect to MCP server"**
-- Solution: Verify your Azure API Management instance is in a supported tier
-- Check network connectivity from your machine to the APIM endpoint
-- Ensure no firewall or proxy is blocking the connection
 
 ---
 
