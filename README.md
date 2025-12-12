@@ -145,17 +145,67 @@ To use your Postman MCP server with Claude Desktop, you need to add it to Claude
 
 ## <img src="https://www.gstatic.com/images/branding/product/2x/google_cloud_48dp.png" width="24" height="24" alt="Google Cloud" /> Google Cloud Platform (Apigee)
 
-This guide is based on the [Apigee MCP Sample](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp) from Google Cloud Platform. The sample provides an MCP server implementation that dynamically discovers Apigee-managed API Products and exposes them as MCP tools for AI agents.
+Apigee now offers **native MCP support** that allows enterprises to turn their existing APIs into secure, governed MCP tools without writing code or deploying separate MCP servers.
+
+> **Native MCP Support (Preview)**
+> 
+> Apigee's native MCP support is currently in **preview**. With this feature, you don't need to make any changes to your existing APIs, write any code, or deploy and manage any local or remote MCP servers. Apigee uses your existing API specifications and manages the underlying infrastructure and transcoding.
+> 
+> **To access this feature, contact your Apigee or Google Cloud account team.**
 
 ### Key Features
 
-- Leverages existing Apigee-managed APIs without redevelopment
-- Provides standardized discovery and invocation through MCP
-- Extends Apigee's security features (OAuth 2.0, API Keys, Threat Protection) to AI agents
-- Offers scalability, reliability, and observability through Apigee's infrastructure
-- Integrates with Apigee API hub for API discovery
+- **No code changes required**: Turn existing APIs into MCP tools using your OpenAPI specifications
+- **Fully managed infrastructure**: Apigee handles MCP servers, transcoding, and protocol handling
+- **Enterprise-grade security**: Extends Apigee's 30+ built-in policies for authorization, authentication, and governance to AI agents
+- **Automatic API hub registration**: Deployed MCP proxies are automatically registered in Apigee API hub
+- **Comprehensive observability**: Use Apigee Analytics and API Insights to monitor MCP tool usage
+- **Framework compatibility**: Works with ADK, LangGraph, and other popular agent frameworks
 
-### Prerequisites
+### Key Benefits
+
+1. **No Added Operational Burden**: You don't need to set up and manage an MCP server for each of your APIs. Just deploy an MCP proxy, and Apigee takes care of the rest—fully managing the MCP servers, transcoding, and protocol handling.
+
+2. **Tool Observability and Governance**: Apigee's built-in identity, authorization, and security policies can secure and govern your MCP endpoints and tools. Use Apigee Analytics to monitor tool usage by MCP clients.
+
+3. **Comprehensive Tool Security**: Apigee ensures all agentic interactions are secure:
+   - Use [Cloud Data Loss Prevention (DLP)](https://cloud.google.com/security/products/dlp) to classify and protect sensitive data
+   - Use [Model Armor](https://cloud.google.com/security-command-center/docs/model-armor-overview) to guard against prompt injection and jailbreaking attempts
+   - Enforce proper IAM permissions for agents and users to invoke MCP tools
+   - Use [Apigee Advanced API Security](https://cloud.google.com/apigee/docs/api-security) for additional protection
+
+4. **Centralized Tool Catalog**: Deployed MCP proxies are automatically registered in Apigee API hub with your spec, allowing you to maintain a searchable, centralized tool catalog and promote tool reuse.
+
+### How It Works (Native MCP Support)
+
+1. **Create an MCP Proxy**: In your Apigee environment group, create an MCP proxy with:
+   - Base path: `/mcp`
+   - Target URL: `mcp.apigeex.com`
+   - Include your OpenAPI specification
+
+2. **Automatic Tool Generation**: When a `tools/list` or `tools/call` request is made to the MCP endpoint, Apigee uses the operations documented in your OpenAPI spec as the MCP tools list.
+
+3. **Apply Policies**: Bundle the MCP proxy in an [API Product](https://cloud.google.com/apigee/docs/api-platform/publish/what-api-product) and apply granular quota, identity, and access policies to ensure only authorized MCP clients, agents, and developers can list and call those tools.
+
+4. **Monitor Usage**: Use Apigee Analytics to monitor MCP tool usage, and use the "Insights" tab in Apigee API hub to view traffic and performance metrics for your MCP endpoints.
+
+### Agent Development Kit (ADK) Integration
+
+Developers using [Agent Development Kit (ADK)](https://google.github.io/adk-docs/) have a streamlined advantage when building agents within the Google ecosystem:
+
+- **ADK Toolset**: ADK includes a [toolset for Apigee and Application Integration](https://google.github.io/adk-docs/tools/google-cloud-tools/), making it easy to connect custom agents to your MCP endpoints
+- **ApigeeLLM Wrapper**: Use the [ApigeeLLM wrapper for ADK](https://google.github.io/adk-docs/agents/models/#using-apigee-gateway-for-ai-models) to expose your LLM endpoint through an Apigee proxy, integrating governance into your agentic workflows
+- **Deployment Options**: Use [Vertex AI Agent Engine](https://cloud.google.com/agent-builder/agent-engine/overview) to deploy your agents and put them in action across your organization using [Gemini Enterprise](https://cloud.google.com/gemini-enterprise)
+
+> **Note**: The ApigeeLLM wrapper is currently designed for use with Vertex AI and the Gemini API in Google AI Studio, with support for other models and interfaces planned.
+
+---
+
+### Alternative: Sample-Based Approach
+
+If you need an immediately available solution or want more control over the MCP server implementation, you can use the [Apigee MCP Sample](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp) from Google Cloud Platform. This sample provides an MCP server implementation that dynamically discovers Apigee-managed API Products and exposes them as MCP tools.
+
+#### Prerequisites (Sample-Based)
 
 - Apigee X Organization with at least one environment
 - GCP Project with the following APIs enabled:
@@ -168,14 +218,7 @@ This guide is based on the [Apigee MCP Sample](https://github.com/GoogleCloudPla
 - apigeecli installed ([download releases](https://github.com/apigee/apigeecli/releases))
 - jq (JSON processor) installed ([download](https://jqlang.org/download/))
 
-### Core Functionality
-
-1. **API Product and Spec Discovery**: Connects to an API configured via environment variables to list API Products and OpenAPI specifications from Apigee API hub
-2. **Dynamic Tool Generation**: Parses OpenAPI specifications and generates corresponding MCP tools for each operation
-3. **MCP Tool Exposure**: Exposes generated tools for MCP clients to consume
-4. **Secure API Execution**: Translates MCP tool calls into HTTP requests with proper authentication using OAuth 2.0
-
-### Getting Started
+#### Getting Started (Sample-Based)
 
 **1. Clone the Repository:**
 ```bash
@@ -185,7 +228,7 @@ cd apigee-samples/apigee-mcp
 
 **2. Configure Environment Variables:**
 
-Edit the apigee-mcp\env.sh and set the following variables based on your APIGEE and GCP Project details:
+Edit the `apigee-mcp/env.sh` and set the following variables based on your Apigee and GCP Project details:
 
 ```bash
 export PROJECT="<PROJECT_ID_TO_SET>"                    # Your GCP Project ID
@@ -209,42 +252,27 @@ export SA_EMAIL="apigee-runtime-sa@my-gcp-project.iam.gserviceaccount.com"
 source ./env.sh
 ```
 
-For detailed setup instructions, refer to the [README in the repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp).
-
-### Deployment
-
-The repository includes a `deploy-all.sh` script that automates the deployment process:
+**4. Deploy:**
 ```bash
-# After configuring env.sh and sourcing it, run:
 ./deploy-all.sh
 ```
 
-The script performs the following actions:
+The deployment script performs the following actions:
 1. Builds container images for stub services and MCP server
 2. Deploys services to Google Cloud Run
 3. Configures Apigee artifacts (API Proxies, Products, Developer Apps)
 4. Sets up Apigee API hub entries
 5. Outputs the MCP server endpoint URL
 
-### Manual Deployment
-
-If you prefer manual deployment:
-```bash
-# Build the container
-gcloud builds submit --tag gcr.io/${GCP_PROJECT_ID}/mcp-server
-
-# Deploy to Cloud Run
-gcloud run deploy mcp-server \
-  --image gcr.io/${GCP_PROJECT_ID}/mcp-server \
-  --platform managed \
-  --region us-central1 \
-  --set-env-vars MCP_BASE_URL=your-base-url,MCP_CLIENT_ID=your-client-id,MCP_CLIENT_SECRET=your-secret,MCP_MODE=SSE
-```
+For detailed setup instructions, refer to the [README in the repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp).
 
 ### Additional Resources
 
+- [MCP Support for Apigee Blog Post](https://cloud.google.com/blog/products/ai-machine-learning/mcp-support-for-apigee)
+- [Announcing MCP Support for Google Services](https://cloud.google.com/blog/products/ai-machine-learning/announcing-official-mcp-support-for-google-services)
 - [Apigee MCP Sample Repository](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp)
-- [Detailed Implementation Guide](https://github.com/GoogleCloudPlatform/apigee-samples/blob/main/apigee-mcp/README.md)
+- [Agent Development Kit (ADK) Documentation](https://google.github.io/adk-docs/)
+- [Apigee API Hub Documentation](https://cloud.google.com/apigee/docs/apihub/getting-started-apihub)
 - [Apigee Documentation](https://cloud.google.com/apigee/docs)
 
 ### Troubleshooting
@@ -252,11 +280,17 @@ gcloud run deploy mcp-server \
 **Issue: "Failed to fetch API products"**
 - Solution: Verify `MCP_BASE_URL` points to a valid Apigee API hub endpoint and credentials are correct
 
-**Issue: Container fails to start**
+**Issue: Container fails to start (sample-based approach)**
 - Solution: Check Cloud Run logs with `gcloud run services logs read mcp-server` and verify all required environment variables are set
 
 **Issue: OAuth authentication failing**
 - Solution: Ensure the Developer App in Apigee has the correct credentials and the API Product is associated with it
+
+**Issue: MCP tools not appearing for agents**
+- Solution: Verify your OpenAPI specification is valid and operations are properly documented
+
+**Issue: Access denied when calling MCP tools**
+- Solution: Check that the API Product includes the MCP proxy and the client has proper credentials
 
 For more troubleshooting help, see the [repository's troubleshooting section](https://github.com/GoogleCloudPlatform/apigee-samples/tree/main/apigee-mcp#troubleshooting)
 
@@ -458,7 +492,7 @@ Add authentication configuration to the JSON file:
 
 ## <img src="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico" width="24" height="24" alt="AWS" /> AWS
 
-> **⚠️ Important Note**
+> **Important Note**
 >
 > Unlike other platform sections that show how to **create MCP servers from existing APIs**, this AWS section covers the **MCP Client Proxy** for connecting to **existing MCP servers already deployed on AWS**. It handles SigV4 authentication but does not create MCP servers.
 >
