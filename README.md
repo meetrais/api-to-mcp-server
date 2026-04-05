@@ -11,7 +11,7 @@ Choose your platform based on your existing infrastructure:
 | [Postman](#postman) | Node.js 18+ | 10 minutes |
 | [Google Cloud (Apigee)](#google-cloud-platform-apigee) | GCP Project, Apigee X | 30 minutes |
 | [Microsoft Azure](#microsoft-azure) | Azure APIM instance | 20 minutes |
-| [AWS](#aws) | Python 3.10+, AWS CLI | 15 minutes |
+| [AWS](#aws) | AWS account with Bedrock AgentCore, AWS CLI | 20 minutes |
 
 ## Glossary
 
@@ -492,112 +492,151 @@ Add authentication configuration to the JSON file:
 
 ## <img src="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico" width="24" height="24" alt="AWS" /> AWS
 
-> **Important Note**
+Amazon Bedrock AgentCore Gateway provides **native MCP support** that allows enterprises to turn their existing APIs, Lambda functions, and other backend services into secure, governed MCP tools through a fully managed gateway — without deploying separate MCP servers.
+
+> **Native MCP Support**
 >
-> Unlike other platform sections that show how to **create MCP servers from existing APIs**, this AWS section covers the **MCP Client Proxy** for connecting to **existing MCP servers already deployed on AWS**. It handles SigV4 authentication but does not create MCP servers.
->
-> **This section assumes you already have an MCP-compliant server deployed on AWS.** If you need to create an MCP server from existing AWS services, you'll need to implement the MCP protocol in your Lambda/API Gateway first.
+> Amazon Bedrock AgentCore Gateway acts as a fully managed "tool front door" for your AI agents. It aggregates multiple backend systems — including REST APIs, AWS Lambda functions, Smithy models, and existing MCP servers — into a single, unified MCP-compatible endpoint. You don't need to write MCP protocol code or manage MCP server infrastructure.
 
-This guide is based on the [MCP Proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) repository. The MCP Proxy for AWS is a lightweight client-side bridge between MCP clients (like Claude Desktop, Amazon Q Developer CLI) and IAM-secured MCP servers on AWS that use SigV4 authentication.
+### Key Features
 
-### Overview
+- **No MCP server code required**: Transform existing REST APIs, Lambda functions, and Smithy models into MCP tools using your existing API specifications
+- **Fully managed infrastructure**: AgentCore Gateway handles MCP servers, protocol transcoding, tool discovery, and routing
+- **Multiple target types**: Supports Lambda functions, OpenAPI schemas, Smithy models, native MCP servers, and built-in integration templates (Salesforce, Slack, Jira, Asana, Zendesk)
+- **Enterprise-grade security**: Dual authentication model with inbound (agent-to-gateway) and outbound (gateway-to-backend) authorization, including IAM (SigV4) and OAuth support
+- **Automatic tool discovery**: Agents dynamically discover available tools at runtime via the standard MCP `tools/list` interface
+- **Stateful MCP support**: AgentCore Runtime supports advanced stateful MCP features including elicitation (server-initiated multi-turn conversations), sampling, and real-time progress notifications
+- **Framework compatibility**: Works with Strands Agents, LangChain, LlamaIndex, and other popular agent frameworks
 
-The MCP Proxy for AWS solves a key integration challenge: while the official MCP specification supports OAuth-based authentication, MCP servers on AWS can use AWS IAM authentication (SigV4). Standard MCP clients don't natively support SigV4 request signing.
+### Key Benefits
 
-This package bridges that gap by:
-- Handling SigV4 authentication automatically using your local AWS credentials
-- Providing seamless integration with existing MCP clients
-- Eliminating the need to build custom MCP clients with SigV4 signing logic
+1. **No Added Operational Burden**: You don't need to build, deploy, or manage MCP servers for each of your APIs. Create a gateway, add your targets, and AgentCore handles the rest — fully managing MCP protocol handling, transcoding, and tool routing.
+
+2. **Unified Tool Interface**: Aggregate tools from multiple backend sources (REST APIs, Lambda, existing MCP servers) behind a single MCP endpoint, simplifying agent development and reducing integration complexity.
+
+3. **Comprehensive Tool Security**: AgentCore ensures all agentic interactions are secure:
+   - **Inbound Authorization**: Control which agents and clients can access your gateway using Amazon Cognito OAuth or IAM (SigV4) authentication
+   - **Outbound Authorization**: Manage how the gateway authenticates with each backend service (API keys, OAuth, IAM roles)
+   - Store sensitive credentials in [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/) or [Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+   - Enforce least-privilege IAM permissions for agents and users
+
+4. **Centralized Tool Catalog**: The gateway provides a stable entry point for agents to discover and search for available tools at scale. Tools are indexed and discoverable via the standard MCP protocol.
+
+### Supported Target Types
+
+| Target Type | Description | Use Case |
+|-------------|-------------|----------|
+| **AWS Lambda** | Execute custom business logic via Lambda functions | Custom tool implementations, serverless backends |
+| **OpenAPI Schema** | Convert REST APIs into MCP tools using OpenAPI 3.0/3.1 specs | Existing REST APIs, third-party services |
+| **Smithy Model** | Define structured API interfaces using Smithy IDL | AWS service integrations, strongly typed APIs |
+| **MCP Server** | Incorporate tools from existing MCP servers as native targets | Pre-built MCP servers, third-party MCP tools |
+| **Built-in Templates** | Pre-configured integration templates | Salesforce, Slack, Jira, Asana, Zendesk |
+
+### How It Works
+
+1. **Create a Gateway**: Use the AWS Console, AgentCore CLI, or the `CreateGateway` API to create a gateway endpoint that serves as the unified MCP interface for your agents.
+
+2. **Add Targets**: Configure one or more targets on your gateway. Each target maps a backend service (Lambda, REST API, MCP server) to the gateway, defining how requests are routed and authenticated.
+
+3. **Tool Indexing**: The gateway uses the `SynchronizeGatewayTargets` API to perform protocol handshakes and index available tools from each target. This can be implicit (automatic) or explicit (manual refresh).
+
+4. **Connect Agents**: Point your AI agents to the gateway's MCP endpoint. Agents discover tools dynamically via `tools/list` and invoke them via `tools/call` — all through the standard MCP protocol.
 
 ### Prerequisites
 
-- Python 3.10 or later
-- `uv` package manager installed ([installation guide](https://github.com/astral-sh/uv))
-- AWS CLI installed and configured with valid credentials
-- AWS account with appropriate IAM permissions
-- An MCP server endpoint on AWS (e.g., Amazon Bedrock AgentCore, API Gateway, Lambda Function URL)
-- Docker Desktop (optional, for containerized deployment)
+- AWS account with access to Amazon Bedrock AgentCore
+- AWS CLI installed and configured with appropriate permissions
+- Python 3.11+ or Node.js 20+ (for server development)
+- Docker installed (for containerized deployments to AgentCore Runtime)
+- Existing backend services to expose as tools:
+  - REST APIs with OpenAPI 3.0/3.1 specifications, OR
+  - AWS Lambda functions with tool schemas, OR
+  - Existing MCP servers with Streamable HTTP transport
 
-### Installation
+### Getting Started
 
-The MCP Proxy for AWS can be used in two ways:
-1. **As a proxy** - Bridge between MCP clients and AWS MCP servers (covered in this guide)
-2. **As a library** - Programmatic integration with AI frameworks like LangChain, LlamaIndex, Strands Agents (see [repository documentation](https://github.com/aws/mcp-proxy-for-aws))
+**1. Create a Gateway**
 
-**Option 1: Using PyPI (Recommended)**
+Using the AWS CLI:
 ```bash
-uvx mcp-proxy-for-aws@latest https://your-mcp-endpoint.execute-api.us-east-1.amazonaws.com
+aws bedrock-agentcore-control create-gateway \
+  --name "my-api-gateway" \
+  --description "MCP gateway for my existing APIs"
 ```
 
-**Option 2: Using Local Repository**
+Or use the AWS Console to create a gateway through the graphical interface, which allows you to configure authorization, define the gateway, and add targets in one step.
+
+**2. Add Targets**
+
+Add your existing APIs as targets on the gateway. The configuration depends on your target type:
+
+**For REST APIs (OpenAPI):**
+- Prepare an OpenAPI 3.0 or 3.1 specification file describing your API
+- Upload the spec to an S3 bucket or provide it inline
+- The `operationId` in the specification becomes the MCP tool name
+
+**For Lambda Functions:**
+- Provide the Lambda function ARN
+- Define the tool schema describing inputs and outputs
+
+**For Existing MCP Servers:**
+- Provide the MCP server endpoint URL
+- The gateway performs a protocol handshake to index available tools
+
+**3. Configure Authentication**
+
+Set up the dual authentication model:
+
+**Inbound (Agent-to-Gateway):**
+- Configure an OAuth authorizer (e.g., Amazon Cognito) for production use
+- Alternatively use IAM (SigV4) for service-to-service communication
+
+**Outbound (Gateway-to-Backend):**
+- Configure credentials for each target (API keys, OAuth tokens, IAM roles)
+- Store secrets in AWS Secrets Manager or Systems Manager Parameter Store
+
+**4. Synchronize and Verify**
+
+Synchronize gateway targets to index available tools:
 ```bash
-git clone https://github.com/aws/mcp-proxy-for-aws.git
-cd mcp-proxy-for-aws
-uv run mcp_proxy_for_aws/server.py https://your-mcp-endpoint.execute-api.us-east-1.amazonaws.com
+aws bedrock-agentcore-control synchronize-gateway-targets \
+  --gateway-id "your-gateway-id"
 ```
 
-**Option 3: Using Docker**
-```bash
-# Build the image
-docker build -t mcp-proxy-for-aws .
+**5. Connect Your Agent**
 
-# Run the container
-docker run --rm \
-  -v ~/.aws:/app/.aws:ro \
-  -e AWS_PROFILE=default \
-  -e AWS_REGION=us-east-1 \
-  mcp-proxy-for-aws \
-  https://your-mcp-endpoint.execute-api.us-east-1.amazonaws.com
+Once the gateway is live, it provides a managed MCP endpoint URL. Connect your agent to this URL and it will dynamically discover all available tools.
+
+### Deploy MCP Servers in AgentCore Runtime
+
+If you need to host custom MCP servers, AgentCore Runtime provides a fully managed serverless hosting environment:
+
+**1. Containerize Your MCP Server:**
+- Ensure your server supports Streamable HTTP transport
+- Configure it to listen on `0.0.0.0:8000/mcp` (the default AgentCore endpoint)
+
+**2. Push to Amazon ECR:**
+```bash
+# Create an ECR repository
+aws ecr create-repository --repository-name my-mcp-server
+
+# Build, tag, and push your container image
+docker build -t my-mcp-server .
+docker tag my-mcp-server:latest <account_id>.dkr.ecr.<region>.amazonaws.com/my-mcp-server:latest
+docker push <account_id>.dkr.ecr.<region>.amazonaws.com/my-mcp-server:latest
 ```
 
-**Note:** When using with MCP clients like Claude Desktop or Amazon Q Developer CLI, you don't need to run these commands manually. The client will start the proxy automatically based on your configuration.
-
-### Endpoint URL Format
-
-AWS MCP endpoints follow these patterns:
-
-- **API Gateway**: `https://[api-id].execute-api.[region].amazonaws.com/[stage]/mcp`
-- **Lambda Function URL**: `https://[function-url-id].lambda-url.[region].on.aws/`
-- **Application Load Balancer**: `https://[alb-dns-name]/mcp`
-
-Example:
+**3. Deploy to AgentCore Runtime:**
 ```bash
-uvx mcp-proxy-for-aws@latest https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp
+aws bedrock-agentcore-control create-agent-runtime \
+  --agent-runtime-name "my-mcp-runtime" \
+  --agent-runtime-artifact '{ "containerConfiguration": { "containerUri": "<your-image-uri>" } }' \
+  --role-arn "arn:aws:iam::<account_id>:role/AgentCoreExecutionRole"
 ```
 
-### Configuration Parameters
+**4. Register as Gateway Target:**
 
-| Parameter | Required | Description | Default |
-|-----------|----------|-------------|---------|
-| `endpoint` | Yes | MCP endpoint URL | - |
-| `--service` | No | AWS service name for SigV4 signing | Inferred from endpoint |
-| `--profile` | No | AWS profile for credentials | `AWS_PROFILE` env var |
-| `--region` | No | AWS region | `AWS_REGION` env var or `us-east-1` |
-| `--read-only` | No | Disable tools requiring write permissions | `false` |
-| `--retries` | No | Number of retries for upstream service calls | `0` |
-| `--log-level` | No | Logging level | `INFO` |
-| `--timeout` | No | Timeout in seconds for all operations | `180` |
-| `--connect-timeout` | No | Connect timeout in seconds | `60` |
-| `--read-timeout` | No | Read timeout in seconds | `120` |
-| `--write-timeout` | No | Write timeout in seconds | `180` |
-
-### Environment Variables
-
-Configure AWS credentials using one of these methods:
-
-**Method 1: Using AWS Profile**
-```bash
-export AWS_PROFILE=your-profile-name
-export AWS_REGION=us-east-1
-```
-
-**Method 2: Using Access Keys**
-```bash
-export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-export AWS_SESSION_TOKEN=your-session-token  # Only for temporary credentials
-export AWS_REGION=us-east-1
-```
+Add the deployed runtime as a target in your AgentCore Gateway for centralized management and tool discovery.
 
 ### MCP Client Configuration
 
@@ -605,7 +644,63 @@ export AWS_REGION=us-east-1
 
 Edit `~/.aws/amazonq/mcp.json`:
 
-Using uv:
+```json
+{
+  "mcpServers": {
+    "agentcore-gateway": {
+      "type": "http",
+      "url": "https://your-agentcore-gateway-endpoint-url/mcp",
+      "env": {
+        "AWS_REGION": "us-east-1",
+        "AUTH_TOKEN": "your-cognito-or-iam-token"
+      }
+    }
+  }
+}
+```
+
+**For Claude Desktop**
+
+Edit configuration file:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "agentcore-gateway": {
+      "type": "http",
+      "url": "https://your-agentcore-gateway-endpoint-url/mcp",
+      "env": {
+        "AWS_REGION": "us-east-1",
+        "AUTH_TOKEN": "your-cognito-or-iam-token"
+      }
+    }
+  }
+}
+```
+
+**Important:** After updating the configuration, completely quit your MCP client and restart it.
+
+> **Note**: If your AgentCore Gateway uses IAM (SigV4) authentication, you can use the [MCP Proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) as a client-side bridge that automatically handles SigV4 request signing. See the supplementary section below.
+
+---
+
+### Supplementary: MCP Proxy for AWS (SigV4 Bridge)
+
+The [MCP Proxy for AWS](https://github.com/aws/mcp-proxy-for-aws) is a lightweight client-side bridge between MCP clients (like Claude Desktop, Amazon Q Developer CLI) and IAM-secured MCP servers on AWS that use SigV4 authentication. Use this when your AgentCore Gateway or other AWS-hosted MCP server requires SigV4 signing.
+
+**Prerequisites:**
+- Python 3.10 or later
+- `uv` package manager installed ([installation guide](https://github.com/astral-sh/uv))
+- AWS CLI installed and configured with valid credentials
+
+**Quick Start:**
+```bash
+uvx mcp-proxy-for-aws@latest https://your-agentcore-gateway-endpoint-url/mcp
+```
+
+**Client Configuration with SigV4 Proxy (Amazon Q Developer CLI):**
 ```json
 {
   "mcpServers": {
@@ -615,7 +710,7 @@ Using uv:
       "command": "uvx",
       "args": [
         "mcp-proxy-for-aws@latest",
-        "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp",
+        "https://your-agentcore-gateway-endpoint-url/mcp",
         "--profile",
         "default",
         "--region",
@@ -628,37 +723,7 @@ Using uv:
 }
 ```
 
-Using Docker:
-```json
-{
-  "mcpServers": {
-    "aws-mcp-server": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--volume",
-        "/Users/yourname/.aws:/app/.aws:ro",
-        "-e",
-        "AWS_PROFILE=default",
-        "-e",
-        "AWS_REGION=us-east-1",
-        "mcp-proxy-for-aws",
-        "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp"
-      ],
-      "env": {}
-    }
-  }
-}
-```
-
-**For Claude Desktop**
-
-Edit configuration file:
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json` (typically `C:\Users\YourUsername\AppData\Roaming\Claude\claude_desktop_config.json`)
-
-Using uvx:
+**Client Configuration with SigV4 Proxy (Claude Desktop):**
 ```json
 {
   "mcpServers": {
@@ -666,7 +731,7 @@ Using uvx:
       "command": "uvx",
       "args": [
         "mcp-proxy-for-aws@latest",
-        "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp",
+        "https://your-agentcore-gateway-endpoint-url/mcp",
         "--profile",
         "default",
         "--region",
@@ -677,66 +742,59 @@ Using uvx:
 }
 ```
 
-Using Docker (Windows example):
-```json
-{
-  "mcpServers": {
-    "aws-api": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "--volume",
-        "C:\\Users\\YourUsername\\.aws:/app/.aws:ro",
-        "-e",
-        "AWS_PROFILE=default",
-        "-e",
-        "AWS_REGION=us-east-1",
-        "mcp-proxy-for-aws",
-        "https://abc123xyz.execute-api.us-east-1.amazonaws.com/prod/mcp"
-      ],
-      "env": {}
-    }
-  }
-}
-```
-
-**Important:** After updating the configuration, completely quit Claude Desktop and restart it.
+For additional proxy options (Docker, configuration parameters, environment variables), see the [MCP Proxy for AWS Repository](https://github.com/aws/mcp-proxy-for-aws).
 
 ### Additional Resources
 
+- [Amazon Bedrock AgentCore Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-landing.html)
+- [AgentCore Gateway Developer Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-gateway-overview.html)
+- [Deploy MCP Servers in AgentCore Runtime](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-runtime.html)
+- [AgentCore GitHub Samples](https://github.com/awslabs/amazon-bedrock-agentcore-samples)
 - [MCP Proxy for AWS Repository](https://github.com/aws/mcp-proxy-for-aws)
-- [Programmatic Access Documentation](https://github.com/aws/mcp-proxy-for-aws#programmatic-access)
-- [AWS Documentation](https://docs.aws.amazon.com/)
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 
 ### Troubleshooting
 
-**Issue: "Unable to locate credentials"**
+**Issue: "Failed to create gateway" or permission errors**
+- Solution: Verify your AWS account has access to Amazon Bedrock AgentCore
+- Ensure your IAM user/role has the necessary `bedrock-agentcore-control:*` permissions
+- Check that the service is available in your chosen AWS region
+
+**Issue: Tool discovery failures after adding targets**
+- Solution: Run `SynchronizeGatewayTargets` to refresh the tool index
+- Verify your OpenAPI specification is valid OpenAPI 3.0 or 3.1 (Swagger 2.0 is not supported)
+- Ensure Lambda functions are accessible and the tool schema is correctly defined
+- For MCP server targets, verify the endpoint responds to MCP protocol handshakes
+
+**Issue: "Unable to locate credentials" (when using MCP Proxy for AWS)**
 - Solution: Verify AWS CLI is configured with `aws configure` or environment variables are set correctly
 - Check credential precedence: environment variables > profile > IAM role
 - Test AWS credentials with: `aws sts get-caller-identity`
 
 **Issue: "Access Denied" or 403 errors**
-- Solution: Verify IAM user/role has permissions to invoke the MCP endpoint
-- Check the SigV4 service name matches the AWS service hosting your endpoint
-- Ensure the `--service` parameter is correct (e.g., `execute-api` for API Gateway, `lambda` for Lambda Function URLs)
+- Solution: Check both inbound and outbound authorization configurations
+- Verify the agent's OAuth token or IAM credentials are valid
+- Ensure the gateway's IAM execution role has permissions to invoke backend targets
+- For SigV4 endpoints, ensure the `--service` parameter is correct (e.g., `execute-api` for API Gateway)
 
-**Issue: Connection timeout**
-- Solution: Increase timeout values with `--timeout`, `--connect-timeout`, or `--read-timeout` flags
-- Verify network connectivity to the AWS endpoint
-- Check if VPN or firewall is blocking the connection
+**Issue: Connection timeout or 504 errors**
+- Solution: AgentCore Gateway has a 5-minute timeout for invocations — ensure backend operations complete within this limit
+- Verify network connectivity and check if VPC configuration allows outbound access
+- For long-running tasks, consider writing results to Amazon Bedrock AgentCore Memory
 
-**Issue: "Invalid endpoint URL"**
-- Solution: Ensure endpoint URL includes the full path including protocol (`https://`)
-- Verify the endpoint is accessible and returns valid MCP responses
+**Issue: MCP server container not starting in AgentCore Runtime**
+- Solution: Verify your container image listens on `0.0.0.0:8000/mcp`
+- Check container health checks and port configuration
+- Review AgentCore Runtime logs for detailed error messages
+- Ensure the ECR image URI is correct and the execution role can pull from ECR
+
+**Issue: "Failed to connect to MCP server" from client**
+- Solution: Verify the gateway endpoint URL is accessible from your machine
+- Check authentication configuration in your MCP client
+- Ensure no firewall or proxy is blocking the connection
 - Test the endpoint with `curl` to confirm it's reachable
 
-**Issue: MCP server not starting in Claude Desktop**
-- Solution: Verify `uv` is installed and accessible from command line (`uv --version`)
-- Check Claude Desktop logs for error messages
-- Ensure the endpoint URL is correct and accessible from your machine
-
-For more troubleshooting help, see the [repository's documentation](https://github.com/aws/mcp-proxy-for-aws)
+For more troubleshooting help, see the [AgentCore documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/agentcore-landing.html)
 
 ---
 
